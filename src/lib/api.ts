@@ -1,7 +1,8 @@
 import type { Message, StreamController } from '../types';
 
-const API_KEY = "ollama"; // You'll need to set your OpenAI API key here
-const url = 'http://192.168.6.5:11434/v1/chat/completions'
+const apiKey = import.meta.env.OLLAMA_API_KEY || 'ollama'
+const url = import.meta.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+const apiUrl = `${url}/v1/chat/completions`
 
 export async function* streamChatCompletion(messages: Message[], model: string): AsyncGenerator<string> {
   // Create AbortController for this stream
@@ -12,11 +13,11 @@ export async function* streamChatCompletion(messages: Message[], model: string):
   streamControllers.set(messages, controller);
   
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${url}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: model,
@@ -71,6 +72,43 @@ export async function* streamChatCompletion(messages: Message[], model: string):
   } finally {
     // Clean up by removing the controller from the registry
     streamControllers.delete(messages);
+  }
+}
+
+export async function getChatSummary(historyMessages: Message[], model: 'llama3.2') {
+  const prompt = `
+You are an assistant that generates a short and clear **title** for a conversation history.
+Please read the following conversation history and return a concise title (5-10 words) that summarizes the conversation topic.
+Only return the title, no other text.
+
+Conversation history:
+${historyMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+  `;
+
+  const body = {
+      model: model,
+      messages: [
+          { role: 'system', content: 'You are a helpful assistant.' },
+          { role: 'user', content: prompt }
+      ],
+      temperature: 0.5
+  };
+
+  const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+  });
+
+  const data = await response.json();
+  if (response.ok) {
+      return data.choices[0].message.content.trim();
+  } else {
+      console.error('Error from OpenAI API:', data);
+      return null;
   }
 }
 

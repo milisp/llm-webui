@@ -91,10 +91,9 @@ function createConversationsStore() {
       update(conversations => {
         const newConversations = conversations.map(conv => {
           if (conv.id === conversationId && conv.messages.length > messageIndex) {
-            // Update the message at the provided index and remove all subsequent messages
             const updatedMessages = [...conv.messages];
             updatedMessages[messageIndex] = newMessage;
-            updatedMessages.length = messageIndex + 1; // Remove all messages after the specified index
+            updatedMessages.length = messageIndex + 1;
             
             return {
               ...conv,
@@ -107,10 +106,25 @@ function createConversationsStore() {
         return newConversations;
       });
     },
+    changeTitle: (conversationId: string, title: string) => {
+      update(conversations => {
+        const newConversations = conversations.map(conv => {
+          if (conv.id === conversationId && conv.messages.length > 0) {
+            return {
+              ...conv,
+              title
+            };
+          }
+          return conv;
+        });
+        saveToLocalStorage(newConversations);
+        return newConversations;
+      });
+    },
     deleteConversation: (id: string) => {
       update(conversations => {
         const newConversations = conversations.filter(conv => conv.id !== id);
-        saveToLocalStorage(newConversations); // Save to localStorage
+        saveToLocalStorage(newConversations);
         return newConversations;
       });
     }

@@ -1,8 +1,6 @@
 <script>
-    import Layout from './Layout.svelte';
-    // import Layout from './LeftSide.svelte';
-  </script>
-  
-  <main>
-    <Layout />
-  </main>
+  import Layout from './Layout.svelte';
+  // import Layout from "./lib/Layout.svelte";
+</script>
+
+<Layout />
