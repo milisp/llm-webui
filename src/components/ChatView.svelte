@@ -1,11 +1,18 @@
 <script lang="ts">
   import { onMount, afterUpdate } from "svelte";
+  import { writable } from "svelte/store";
+
   import type { Conversation, Message, StreamController } from "../types";
   import { conversations } from "../stores/conversations";
   import MessageComponent from "./Message.svelte";
-  import { streamChatCompletion, createStreamController } from "../lib/api";
-  import { writable } from "svelte/store";
+  import {
+    streamChatCompletion,
+    createStreamController,
+    getChatSummary,
+  } from "../lib/api";
   import { isOpen, isStreaming } from "../stores/common";
+  import { PencilSquare, ArrowPath, ClipboardDocument } from "svelte-heros-v2";
+  import CopyButton from './CopyButton.svelte';
 
   export let conversation: Conversation;
 
@@ -14,6 +21,7 @@
   let streamController: StreamController | null = null;
   let editingMessageId: number | null = null;
   let isEditing = false;
+  let copied = false;
 
   async function sendMessage() {
     if ($isStreaming) return;
@@ -42,19 +50,17 @@
     };
 
     conversations.addMessage(conversation.id, assistantMessage);
+    let newConv = $conversations.find((c) => c.id == conversation.id);
 
     try {
       isStreaming.set(true);
       isEditing = false;
       streamController = createStreamController();
 
-      // Create message array for API
-      // Include all messages EXCEPT the empty assistant message we just added
-      const apiMessages = conversation.messages.slice(0, -1);
+      const apiMessages = newConv?.messages.slice(0, -1) || [];
+      const summary = await getChatSummary(apiMessages, $selectedModel);
 
-      // FIX: Make sure we have at least one message (the user message)
       if (apiMessages.length === 0) {
-        // This shouldn't happen, but let's fix it anyway
         apiMessages.push(userMessage);
       }
 
@@ -66,12 +72,14 @@
         fullResponse += chunk;
         conversations.updateLastMessage(conversation.id, fullResponse);
       }
+      conversations.changeTitle(conversation.id, summary);
     } catch (error) {
-      if (error.name !== "AbortError") {
-        console.error("Error during streaming:", error);
+      const err = error as Error;
+      if (err.name !== "AbortError") {
+        console.error("Error during streaming:", err);
         conversations.updateLastMessage(
           conversation.id,
-          `Error: ${error.message || "Failed to get response"}`,
+          `Error: ${err.message || "Failed to get response"}`,
         );
       }
     } finally {
@@ -89,7 +97,7 @@
   }
 
   afterUpdate(() => {
-    if (!isEditing) {
+    if ($isStreaming && !isEditing) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
   });
@@ -114,6 +122,17 @@
       conversation.id,
       msgIdx,
       conversation.messages[msgIdx],
+    );
+    await sendMessage();
+    editingMessageId = null;
+  }
+  async function regenerate(msgIdx: number) {
+    editingMessageId = msgIdx - 1
+    isEditing = true
+    conversations.editMessage(
+      conversation.id,
+      msgIdx - 1,
+      conversation.messages[msgIdx-1],
     );
     await sendMessage();
     editingMessageId = null;
@@ -183,16 +202,19 @@
         {:else}
           <MessageComponent {message} />
         {/if}
-        <div class="font-semibold flex justify-between">
+        <div class="font-semibold flex justify-end gap-3 pr-4">
           {#if message.role === "user" && !isEditing}
             <button
               on:click={() => startEditingMessage(msgIdx)}
-              class="text-xs text-blue-500 hover:text-blue-700"
+              class="hover:text-blue-700"
             >
-              Edit
+              <PencilSquare />
             </button>
+          {:else if message.role === "assistant"}
+            <button on:click={()=>regenerate(msgIdx)}><ArrowPath /></button>
           {/if}
-        </div>
+            <CopyButton copied={copied} text={message.content} />
+      </div>
       {/each}
     {/if}
   </div>

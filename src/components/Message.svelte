@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { writable } from "svelte/store";
   import type { Message } from "../types";
   import SvelteMarkdown from 'svelte-markdown';
   import CodeRenderer from "./CodeRenderer.svelte";
@@ -49,11 +48,11 @@
 </script>
 
 <div class="mb-1 {getBackgroundColor(message.role)} p-2 rounded-lg">
-  <div class="flex gap-3">
+  <div class="flex">
     <!-- <div class="flex-shrink-0">
       {@html getAvatar(message.role)}
     </div> -->
-    <div class="flex-1">
+    <div class="max-w-full">
        <SvelteMarkdown source={message.content} renderers={{ code: CodeRenderer }}  />
     </div>
   </div>

@@ -1,82 +1,59 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import Prism from 'prismjs';
-  import 'prismjs/themes/prism.css';
+  import { onMount, tick } from "svelte";
+  import Prism from "prismjs";
+  import "prismjs/themes/prism.css";
   // Import additional langs as needed
-  import 'prismjs/components/prism-typescript';
-  import 'prismjs/components/prism-javascript';
-  import 'prismjs/components/prism-css';
-  import 'prismjs/components/prism-json';
-  import 'prismjs/components/prism-python';
-  import 'prismjs/components/prism-bash';
+  import "prismjs/components/prism-typescript";
+  import "prismjs/components/prism-javascript";
+  import "prismjs/components/prism-css";
+  import "prismjs/components/prism-json";
+  import "prismjs/components/prism-python";
+  import "prismjs/components/prism-rust";
+  import "prismjs/components/prism-go";
+  import "prismjs/components/prism-bash";
   import { isStreaming } from "../stores/common";
-  
+
+  import CopyButton from "./CopyButton.svelte";
+
   export let lang: string;
   export let text: string;
-  
+
   let copied = false;
-  let timeout: ReturnType<typeof setTimeout>;
   let codeElement: HTMLElement;
-  
+
   onMount(() => {
     if (codeElement && lang) {
       Prism.highlightElement(codeElement);
     }
   });
 
-  $: if (!$isStreaming) {
-    if (codeElement && lang) {
-      Prism.highlightElement(codeElement);
-    }
-  }
-  
-  function copyToClipboard() {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        copied = true;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          copied = false;
-        }, 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy: ', err);
-      });
-  }
+  let isHl = false
+
+  $: if (!$isStreaming && !isHl) {
+      if (codeElement && lang) {
+        Prism.highlightElement(codeElement);
+        isHl = true
+      }
+}
 </script>
 
-<div class="code-block relative max-w-screen">
-  
-  <button 
-    on:click={copyToClipboard}
-    class="copy-button absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded"
-  >
-    {copied ? '✓ Copied!' : 'Copy'}
-  </button>
-  
-  <pre class={`lang-${lang}`}><code bind:this={codeElement} class={`lang-${lang}`}>{text}</code></pre>
+<div class="relative max-w-screen">
+  <pre class={`language-${lang}`}><code bind:this={codeElement} class={`language-${lang}`}>{text}</code></pre>
+  <span class="absolute top-2 right-2">
+    <CopyButton {copied} {text} />
+  </span>
 </div>
 
 <style>
-  
-  pre {
-    padding: 1em;
-    border-radius: 4px;
-    overflow: auto;
-    background-color: #f5f5f5;
-  }
-  
-  .copy-button {
-    opacity: 0.7;
-    transition: opacity 0.2s;
-  }
-  
-  .copy-button:hover {
-    opacity: 1;
-  }
-  
-  .lang-tag {
+  .language-tag {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    background-color: #4a5568;
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
     opacity: 0.7;
   }
 </style>
-

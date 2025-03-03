@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Conversation } from "../types";
-  import { conversations as conversationsStore, activeConversationId } from "../stores/conversations";
+  import {
+    conversations as conversationsStore,
+    activeConversationId,
+  } from "../stores/conversations";
   import { isOpen } from "../stores/common";
+  import { Cog, Trash, UserCircle } from "svelte-heros-v2";
 
   export let onSelectConversation: (id: string) => void;
   export let onNewConversation: () => void;
@@ -10,22 +14,25 @@
   function deleteConversation(id: string) {
     conversationsStore.deleteConversation(id);
     if ($activeConversationId == id) {
-      conversationsStore.createConversation()
+      conversationsStore.createConversation();
     }
   }
 </script>
 
-    <!-- Overlay when sidebar is open -->
-    {#if $isOpen}
-    <button
-      class="fixed inset-0 bg-black opacity-50 z-10"
-      on:click={() => ($isOpen = !$isOpen)}
-    >0</button>
-  {/if}
-  
+<!-- Overlay when sidebar is open -->
 {#if $isOpen}
-  <div class="w-64 h-full bg-gray-200 dark:bg-gray-900 flex flex-col z-20">
-    <div class="flex justify-between p-2 border-b border-gray-300 dark:border-gray-700">
+  <button
+    class="fixed inset-0 bg-black opacity-50 z-10"
+    on:click={() => ($isOpen = !$isOpen)}>-</button
+  >
+  {/if}
+
+{#if $isOpen}
+
+  <div class="h-screen w-64 bg-gray-200 dark:bg-gray-900 flex flex-col z-20">
+    <div
+      class="flex justify-between p-2 border-b border-gray-300 dark:border-gray-700"
+    >
       <button class="" on:click={() => ($isOpen = !$isOpen)}> 🌙 </button>
       <button class="" on:click={onNewConversation}>📝</button>
     </div>
@@ -45,14 +52,15 @@
           >
           <button
             class="hover:bg-red-500"
-            on:click={() => deleteConversation(conversation.id)}>🗑️</button
+            on:click={() => deleteConversation(conversation.id)}
+            ><Trash /></button
           >
         </div>
       {/each}
     </div>
     <footer class="flex justify-between p-4">
-      <span>avatar</span>
-      <span> ⚙️</span>
+      <span><UserCircle /></span>
+      <span> <Cog /></span>
     </footer>
   </div>
 {/if}
