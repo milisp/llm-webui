@@ -18,4 +18,10 @@ export interface Conversation {
 export interface StreamController {
     abort: () => void;
 }
-  
+
+export interface Model {
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+}

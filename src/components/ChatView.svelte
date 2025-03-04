@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, afterUpdate } from "svelte";
-  import { writable } from "svelte/store";
+  import { PencilSquare, ArrowPath, ClipboardDocument } from "svelte-heros-v2";
 
   import type { Conversation, Message, StreamController } from "../types";
   import { conversations } from "../stores/conversations";
@@ -10,9 +10,10 @@
     createStreamController,
     getChatSummary,
   } from "../lib/api";
-  import { isOpen, isStreaming } from "../stores/common";
-  import { PencilSquare, ArrowPath, ClipboardDocument } from "svelte-heros-v2";
-  import CopyButton from './CopyButton.svelte';
+  import { isOpen, isStreaming, selectedModel } from "../stores/common";
+  import CopyButton from "./CopyButton.svelte";
+  import ChatInput from "./ChatInput.svelte";
+  import SelectModel from "./SelectModel.svelte";
 
   export let conversation: Conversation;
 
@@ -102,20 +103,21 @@
     }
   });
 
-  const selectedModel = writable("llama3.2");
-  const models = ["llama3.2", "deepseek-r1:7b"];
-
   function onNewConversation() {
     conversations.createConversation();
   }
 
-  function setEditingMessageId(msgIdx: number) {
+  let textareaRefs: { [key: number]: HTMLTextAreaElement | null } = {};
+  function setEditingMessageId() {
     isEditing = false;
     editingMessageId = null;
   }
-  function startEditingMessage(msgIdx: number) {
+  function startEditingMessage(index: number) {
     isEditing = true;
-    editingMessageId = msgIdx;
+    editingMessageId = index;
+    setTimeout(() => {
+      textareaRefs[index]?.focus();
+    }, 0);
   }
   async function handleEditSubmit(msgIdx: number) {
     conversations.editMessage(
@@ -127,38 +129,31 @@
     editingMessageId = null;
   }
   async function regenerate(msgIdx: number) {
-    editingMessageId = msgIdx - 1
-    isEditing = true
+    editingMessageId = msgIdx - 1;
+    isEditing = true;
     conversations.editMessage(
       conversation.id,
       msgIdx - 1,
-      conversation.messages[msgIdx-1],
+      conversation.messages[msgIdx - 1],
     );
     await sendMessage();
     editingMessageId = null;
+  }
+
+  function handleSubmit(text: string) {
+    messageText = text;
+    sendMessage();
   }
 </script>
 
 <div class="flex-1 flex flex-col h-full max-w-screen">
   <header class="p-2 sticky top-0 bg-white dark:bg-gray-700 shadow-lg z-10">
     {#if $isOpen}
-      <select bind:value={$selectedModel}>
-        {#each models as m}
-          <option value={m}>
-            {m}
-          </option>
-        {/each}
-      </select>
+      <SelectModel />
     {:else}
       <div class="flex justify-between">
         <button on:click={() => ($isOpen = !$isOpen)}> ⚡️ </button>
-        <select bind:value={$selectedModel}>
-          {#each models as m}
-            <option value={m}>
-              {m}
-            </option>
-          {/each}
-        </select>
+        <SelectModel />
         <button class="" on:click={onNewConversation}>📝</button>
       </div>
     {/if}
@@ -171,25 +166,31 @@
       </div>
     {:else}
       {#each conversation.messages as message, msgIdx}
-        {#if message.role === "user"}
-          <div class="flex-1">
+        <!-- message -->
+        <div class="mb-4 flex flex-col gap-2 group">
+          {#if message.role === "user"}
             {#if editingMessageId === msgIdx && isEditing}
-              <div class="mt-2">
+              <div class="space-y-2">
                 <textarea
+                  bind:this={textareaRefs[msgIdx]}
                   bind:value={message.content}
-                  class="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:border-blue-500"
-                  rows={Math.min(message.content.split("\n").length, 1)}
+                  class="w-full p-3 border border-gray-300 dark:border-gray-600
+                 rounded-lg
+                 bg-white dark:bg-gray-800 resize-y"
+                  rows={Math.max(message.content.split("\n").length, 2)}
                 ></textarea>
-                <div class="flex justify-end mt-2 space-x-2">
+                <div class="flex justify-end gap-2">
                   <button
-                    on:click={() => setEditingMessageId(msgIdx)}
-                    class="px-3 py-1 text-sm bg-gray-200 rounded-md hover:bg-gray-300"
+                    on:click={() => setEditingMessageId()}
+                    class="px-4 py-1.5 text-sm bg-gray-200 dark:bg-gray-700
+                   rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                   >
                     Cancel
                   </button>
                   <button
                     on:click={() => handleEditSubmit(msgIdx)}
-                    class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    class="px-4 py-1.5 text-sm bg-blue-600 text-white
+                   rounded-md hover:bg-blue-700"
                   >
                     Save & Regenerate
                   </button>
@@ -198,56 +199,37 @@
             {:else}
               <MessageComponent {message} />
             {/if}
-          </div>
-        {:else}
-          <MessageComponent {message} />
-        {/if}
-        <div class="font-semibold flex justify-end gap-3 pr-4">
-          {#if message.role === "user" && !isEditing}
-            <button
-              on:click={() => startEditingMessage(msgIdx)}
-              class="hover:text-blue-700"
-            >
-              <PencilSquare />
-            </button>
-          {:else if message.role === "assistant"}
-            <button on:click={()=>regenerate(msgIdx)}><ArrowPath /></button>
+          {:else}
+            <MessageComponent {message} />
           {/if}
-            <CopyButton copied={copied} text={message.content} />
-      </div>
+
+          <!-- action -->
+          <div
+            class="flex h-2 justify-end gap-3 text-gray-500 dark:text-gray-400 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+          >
+            <CopyButton {copied} text={message.content} />
+            {#if message.role === "user" && !isEditing}
+              <button
+                on:click={() => startEditingMessage(msgIdx)}
+                class="hover:text-blue-600 dark:hover:text-blue-400"
+                aria-label="Edit message"
+              >
+                <PencilSquare />
+              </button>
+            {:else if message.role === "assistant"}
+              <button
+                on:click={() => regenerate(msgIdx)}
+                class="hover:text-blue-600 dark:hover:text-blue-400"
+                aria-label="Regenerate response"
+              >
+                <ArrowPath />
+              </button>
+            {/if}
+          </div>
+        </div>
       {/each}
     {/if}
   </div>
-  <!-- Input area -->
-  <div
-    class="sticky bottom-0 bg-white shadow-lg z-10 border-t border-gray-300 dark:border-gray-700"
-  >
-    <form on:submit|preventDefault={sendMessage} class="flex">
-      <input
-        type="text"
-        bind:value={messageText}
-        placeholder="Type a message..."
-        class="flex-1 p-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-        disabled={$isStreaming}
-      />
-
-      {#if $isStreaming}
-        <button
-          type="button"
-          on:click={stopStreaming}
-          class="bg-red-500 text-white p-2 rounded-md"
-        >
-          stop
-        </button>
-      {:else}
-        <button
-          type="submit"
-          disabled={!messageText.trim()}
-          class="bg-blue-500 text-white p-2 rounded-md disabled:opacity-50"
-        >
-          send
-        </button>
-      {/if}
-    </form>
-  </div>
+  <!-- Replace the input area with ChatInput component -->
+  <ChatInput onSubmit={handleSubmit} onStop={stopStreaming} />
 </div>

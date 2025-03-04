@@ -1,4 +1,5 @@
 import type { Message, StreamController } from '../types';
+import type {Model} from '../types'
 
 const apiKey = import.meta.env.OLLAMA_API_KEY || 'ollama'
 const url = import.meta.env.OLLAMA_BASE_URL || 'http://localhost:11434'
@@ -125,4 +126,16 @@ export function createStreamController(): StreamController {
       streamControllers.clear();
     }
   };
+}
+
+export async function getModels() {
+  const response = await fetch(`${url}/v1/models`)
+  const data = await response.json();
+  if (response.ok) {
+    const models: Model[] = data.data
+    return models.map(model => model.id.replace(":latest", ""));
+} else {
+    console.error('Error from OpenAI API:', data);
+    return ["llama3.2"];
+}
 }
